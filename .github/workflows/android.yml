@@ -47,18 +47,21 @@ jobs:
           }
           EOF
 
-          # 2. 强制生成 AndroidManifest.xml (解决权限声明警告)
+          # 2. 强制生成 AndroidManifest.xml
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
               <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+              
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
                   android:label="SwipePlayer"
                   android:requestLegacyExternalStorage="true"
+                  android:preserveLegacyExternalStorage="true"
                   android:usesCleartextTraffic="true">
                   <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode">
                       <intent-filter>
