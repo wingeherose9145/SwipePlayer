@@ -6,5 +6,9 @@
     "androidScheme": "https",
     "allowNavigation": ["*"],
     "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true
   }
 }
