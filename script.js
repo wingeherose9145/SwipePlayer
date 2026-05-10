@@ -1,3 +1,7 @@
+/**
+ * SwipePlayer 完整核心脚本 (Fix: ACCESS_MEDIA_LOCATION)
+ */
+
 const container = document.getElementById('videoContainer');
 const addBtn = document.getElementById('add-btn');
 const emptyState = document.getElementById('empty-state');
@@ -28,25 +32,27 @@ function loadSavedPaths() {
 
 function renderVideo(nativePath) {
     if (!nativePath) return;
-    const videoUrl = window.Capacitor.convertFileSrc(nativePath);
+    // 转换路径以便在 Web 视图中播放
+    const videoUrl = window.Capacitor ? window.Capacitor.convertFileSrc(nativePath) : nativePath;
+    
     const card = document.createElement('div');
     card.className = 'video-card';
     card.innerHTML = `<video src="${videoUrl}" loop playsinline webkit-playsinline preload="auto"></video>`;
     container.appendChild(card);
+    
     const v = card.querySelector('video');
     v.load(); 
     observer.observe(card);
 }
 
-// 2. 核心视频选择函数
+// 2. 选择视频逻辑
 async function pickVideos() {
     try {
         const { FilePicker } = window.Capacitor.Plugins;
         
-        // Android 13+ 必须通过这一步触发系统的媒体权限弹窗
+        // 尝试请求权限 (包含最新的 Media Location 权限)
         if (FilePicker.requestPermissions) {
-            const permStatus = await FilePicker.requestPermissions();
-            console.log("权限状态:", permStatus);
+            await FilePicker.requestPermissions();
         }
         
         const result = await FilePicker.pickFiles({ 
@@ -61,7 +67,7 @@ async function pickVideos() {
             let successCount = 0;
 
             for (const file of result.files) {
-                // 优先使用物理路径 path
+                // 核心：必须拿到 file.path 才能持久化
                 const finalPath = file.path;
                 if (finalPath) {
                     store.add(finalPath);
@@ -74,15 +80,16 @@ async function pickVideos() {
                 addBtn.classList.add('hidden');
                 if (emptyState) emptyState.style.display = 'none';
             } else {
-                alert("路径获取失败。请确保点击侧边栏菜单进入【内部存储】空间选择。");
+                alert("获取物理路径失败。请点击左上角菜单 -> 选择【内部存储】空间后再选视频。");
             }
         }
     } catch (err) { 
-        // 将具体的错误信息弹出来
-        alert("操作失败详情: " + (err.message || JSON.stringify(err))); 
+        // 这里会捕获并弹出具体的 Android 权限缺失信息
+        alert("操作异常: " + (err.message || JSON.stringify(err))); 
     }
 }
 
+// 3. 交互控制
 addBtn.onclick = (e) => { e.stopPropagation(); pickVideos(); };
 
 container.onclick = () => {
