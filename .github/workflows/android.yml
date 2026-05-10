@@ -23,7 +23,8 @@ jobs:
 
       - name: Native Logic Injection
         run: |
-          # 1. 覆盖生成完美的 MainActivity.java (解决 WebView 权限底层限制)
+          # 1. 强制生成完美的 MainActivity.java (彻底解决 WebView 底层文件访问限制)
+          mkdir -p android/app/src/main/java/com/mytiktok/app/
           cat <<EOF > android/app/src/main/java/com/mytiktok/app/MainActivity.java
           package com.mytiktok.app;
           import android.os.Bundle;
@@ -34,24 +35,25 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  // 强制开启底层文件访问权，允许 WebView 加载 file:// 路径
-                  WebSettings settings = this.bridge.getWebView().getSettings();
-                  settings.setAllowFileAccess(true);
-                  settings.setAllowContentAccess(true);
-                  settings.setAllowFileAccessFromFileURLs(true);
-                  settings.setAllowUniversalAccessFromFileURLs(true);
+                  // 底层权限逻辑：强制开启本地文件访问
+                  try {
+                      WebSettings s = this.bridge.getWebView().getSettings();
+                      s.setAllowFileAccess(true);
+                      s.setAllowContentAccess(true);
+                      s.setAllowFileAccessFromFileURLs(true);
+                      s.setAllowUniversalAccessFromFileURLs(true);
+                  } catch (Exception e) {}
               }
           }
           EOF
 
-          # 2. 覆盖生成 AndroidManifest.xml (声明现代 Android 媒体权限)
+          # 2. 强制生成 AndroidManifest.xml (解决权限声明警告)
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
               <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
-              
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
@@ -72,8 +74,8 @@ jobs:
       - name: Build APK
         run: |
           cd android && chmod +x gradlew && ./gradlew assembleDebug
-      - name: Upload
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SwipePlayer-Standard-v1
+          name: SwipePlayer-Final
           path: android/app/build/outputs/apk/debug/app-debug.apk
