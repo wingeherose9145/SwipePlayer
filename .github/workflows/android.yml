@@ -48,16 +48,16 @@ jobs:
                   s.setAllowFileAccessFromFileURLs(true);
                   s.setAllowUniversalAccessFromFileURLs(true);
 
-                  // B. Android 11+ 自动检测并跳转权限申请页
+                  // B. Android 11+ 自动检测并跳转
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                       if (!Environment.isExternalStorageManager()) {
                           try {
-                              Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                              i.setData(Uri.parse("package:" + getPackageName()));
-                              startActivity(i);
+                              Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                              intent.setData(Uri.parse("package:" + getPackageName()));
+                              startActivity(intent);
                           } catch (Exception e) {
-                              Intent i = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                              startActivity(i);
+                              Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                              startActivity(intent);
                           }
                       }
                   }
@@ -65,13 +65,15 @@ jobs:
           }
           EOF
 
-          # 2. 注入完整权限声明的 AndroidManifest.xml
+          # 2. 注入针对 Android 13 优化的 AndroidManifest.xml
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
               <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+              
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
@@ -95,5 +97,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SwipePlayer-Fix-v2
+          name: SwipePlayer-Final-Fix
           path: android/app/build/outputs/apk/debug/app-debug.apk
