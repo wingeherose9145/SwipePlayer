@@ -40,33 +40,41 @@ function renderVideo(nativePath) {
     observer.observe(card);
 }
 
-// 调用底层选择器获取真实物理路径
+// 替换 pickVideos 函数
 async function pickVideos() {
     try {
         const { FilePicker } = window.Capacitor.Plugins;
-        if (FilePicker.requestPermissions) await FilePicker.requestPermissions();
-        
-        const result = await FilePicker.pickFiles({ 
-            types: ['video/*'], 
-            multiple: true, 
-            readData: false 
+
+        // 1. 对于 Android 13+，除了所有文件权限，有时还需要明确的媒体权限
+        if (FilePicker.requestPermissions) {
+            await FilePicker.requestPermissions();
+        }
+
+        // 2. 关键：不要加过多的限制，让原生插件以最轻量方式运行
+        const result = await FilePicker.pickFiles({
+            types: ['video/*'],
+            multiple: true,
+            readData: false // 必须为 false，否则会因为尝试读取大数据导致内存溢出报错
         });
-        
+
         if (result.files && result.files.length > 0) {
             const tx = db.transaction(["paths"], "readwrite");
             const store = tx.objectStore("paths");
-            
-            emptyState.style.display = 'none';
+
             for (const file of result.files) {
-                if (file.path) {
-                    store.add(file.path);
-                    renderVideo(file.path);
+                // 如果 file.path 依然拿不到，尝试使用 file.identifier (针对某些机型)
+                const finalPath = file.path || file.identifier; 
+                if (finalPath) {
+                    store.add(finalPath);
+                    renderVideo(finalPath);
                 }
             }
             addBtn.classList.add('hidden');
+            if (emptyState) emptyState.style.display = 'none';
         }
-    } catch (err) { 
-        alert("选择取消或失败，请确保系统已授予访问权限。"); 
+    } catch (err) {
+        console.error("Pick error details:", err);
+        alert("选择失败，请确认：\n1. 已开启‘所有文件访问权限’\n2. 从‘内部存储’文件夹选择视频，而非‘最近’列表。");
     }
 }
 
