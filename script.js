@@ -1,20 +1,9 @@
-const container = document.getElementById('videoContainer');
-const addBtn = document.getElementById('add-btn');
-let db;
-
-// 初始化持久化数据库
-const request = indexedDB.open("ProVideoDB", 1);
-request.onupgradeneeded = (e) => {
-    db = e.target.result;
-    db.createObjectStore("videos", { keyPath: "id", autoIncrement: true });
-};
-request.onsuccess = (e) => { db = e.target.result; loadVideos(); };
-
+// 修改 pickVideos 函数，使其符合 Android 13+ 的路径逻辑
 async function pickVideos() {
     try {
         const { FilePicker } = window.Capacitor.Plugins;
         
-        // 核心逻辑：使用原生选择器，它会自动处理 Android 权限申请
+        // 使用 pickFiles 获取更直接的物理路径
         const result = await FilePicker.pickFiles({
             types: ['video/*'],
             multiple: true,
@@ -22,34 +11,20 @@ async function pickVideos() {
         });
 
         if (result.files && result.files.length > 0) {
-            const tx = db.transaction("videos", "readwrite");
-            const store = tx.objectStore("videos");
+            const tx = db.transaction("paths", "readwrite");
+            const store = tx.objectStore("paths");
 
             for (const file of result.files) {
-                // file.path 是以 /storage/ 开头的绝对路径
+                // 确保只保存物理路径（/storage/emulated/0/...）
                 if (file.path) {
-                    store.add({ path: file.path, name: file.name });
-                    addVideoToUI(file.path);
+                    store.add(file.path);
+                    renderVideo(file.path);
                 }
             }
             addBtn.classList.add('hidden');
         }
-    } catch (e) {
-        alert("请授予媒体访问权限以便播放视频");
+    } catch (err) {
+        console.error("选择失败:", err);
+        alert("请在设置中授予‘所有文件访问权限’以确保视频正常播放。");
     }
 }
-
-function addVideoToUI(nativePath) {
-    // 关键：将 Android 路径转换为 WebView 可识别的虚拟 URL
-    const webUrl = window.Capacitor.convertFileSrc(nativePath);
-    
-    const card = document.createElement('div');
-    card.className = 'video-card';
-    card.innerHTML = `<video src="${webUrl}" loop playsinline webkit-playsinline></video>`;
-    container.appendChild(card);
-    
-    const v = card.querySelector('video');
-    observer.observe(card);
-}
-
-// 自动播放与停止逻辑保持不变...
