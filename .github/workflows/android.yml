@@ -14,16 +14,16 @@ jobs:
         uses: actions/setup-node@v4
         with: { node-version: '22' }
 
-      - name: Prepare Assets
+      - name: Build Web Assets
         run: |
           mkdir -p www
           cp index.html style.css script.js www/ || true
           npm install --force
           npx cap add android
 
-      - name: Inject Native Logic
+      - name: Native Logic Injection
         run: |
-          # 1. 直接覆盖生成完美的 MainActivity.java
+          # 1. 覆盖生成完美的 MainActivity.java (解决 WebView 权限底层限制)
           cat <<EOF > android/app/src/main/java/com/mytiktok/app/MainActivity.java
           package com.mytiktok.app;
           import android.os.Bundle;
@@ -34,7 +34,7 @@ jobs:
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  // 底层逻辑：开启 WebView 对本地文件的读取权
+                  // 强制开启底层文件访问权，允许 WebView 加载 file:// 路径
                   WebSettings settings = this.bridge.getWebView().getSettings();
                   settings.setAllowFileAccess(true);
                   settings.setAllowContentAccess(true);
@@ -44,19 +44,20 @@ jobs:
           }
           EOF
 
-          # 2. 覆盖生成 AndroidManifest.xml (声明必要权限)
+          # 2. 覆盖生成 AndroidManifest.xml (声明现代 Android 媒体权限)
           cat <<EOF > android/app/src/main/AndroidManifest.xml
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+              <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
+              
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
-                  android:label="@string/app_name"
+                  android:label="SwipePlayer"
                   android:requestLegacyExternalStorage="true"
-                  android:usesCleartextTraffic="true"
-                  android:theme="@style/AppTheme.NoActionBar">
+                  android:usesCleartextTraffic="true">
                   <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -74,5 +75,5 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: TikTok-Native-Standard
+          name: SwipePlayer-Standard-v1
           path: android/app/build/outputs/apk/debug/app-debug.apk
