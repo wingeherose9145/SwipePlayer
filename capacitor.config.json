@@ -1,0 +1,10 @@
+{
+  "appId": "com.mytiktok.app",
+  "appName": "TikTokPlayer",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": ["*"],
+    "cleartext": true
+  }
+}
