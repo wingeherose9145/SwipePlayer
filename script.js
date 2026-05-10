@@ -1,5 +1,5 @@
 /**
- * SwipePlayer 终极持久化版 (解决重启黑屏问题)
+ * SwipePlayer 路径兼容加强版
  */
 
 const container = document.getElementById('videoContainer');
@@ -35,16 +35,14 @@ function loadSavedPaths() {
     };
 }
 
-// 3. 渲染视频（增加错误监测）
+// 3. 渲染视频
 function renderVideo(nativePath) {
     if (!nativePath) return;
 
-    // 将原生物理路径转换为 WebView 可用的 URL
     const videoUrl = window.Capacitor ? window.Capacitor.convertFileSrc(nativePath) : nativePath;
     
     const card = document.createElement('div');
     card.className = 'video-card';
-    // 增加 onerror 处理，如果路径失效则显示提示
     card.innerHTML = `
         <video 
             src="${videoUrl}" 
@@ -62,25 +60,23 @@ function renderVideo(nativePath) {
     observer.observe(card);
 }
 
-// 视频加载失败的处理
 function videoLoadError(v, path) {
     console.error("加载失败路径:", path);
     const parent = v.parentElement;
     parent.innerHTML = `
         <div style="padding: 20px; text-align: center; color: #ff4d4d; font-size: 14px;">
             <p>视频加载失败</p>
-            <p style="font-size: 10px; color: #666; margin-top: 10px;">原因：路径授权已过期</p>
-            <button onclick="location.reload()" style="margin-top:10px; background:#333; color:white; border:none; padding:5px 10px; border-radius:4px;">刷新列表</button>
+            <p style="font-size: 10px; color: #666; margin-top: 10px;">路径已失效或文件被移动</p>
+            <button onclick="location.reload()" style="margin-top:10px; background:#333; color:white; border:none; padding:5px 10px; border-radius:4px;">重试</button>
         </div>
     `;
 }
 
-// 4. 选择视频（增加路径格式校验）
+// 4. 选择视频（改进后的路径校验逻辑）
 async function pickVideos() {
     try {
         const { FilePicker } = window.Capacitor.Plugins;
         
-        // 请求基础权限
         if (FilePicker.requestPermissions) await FilePicker.requestPermissions();
         
         const result = await FilePicker.pickFiles({ 
@@ -92,40 +88,43 @@ async function pickVideos() {
         if (result.files && result.files.length > 0) {
             const tx = db.transaction(["paths"], "readwrite");
             const store = tx.objectStore("paths");
-            let permanentCount = 0;
-            let temporaryCount = 0;
+            let addedCount = 0;
+            let showWarning = false;
 
             for (const file of result.files) {
                 const path = file.path;
                 
                 if (path) {
-                    // 判断是否为永久路径 (以 /storage 开头)
-                    if (path.startsWith('/storage')) {
+                    // 【逻辑优化】：
+                    // 不再强制要求以 /storage 开头
+                    // 只要路径不包含 'content://' 且不包含 'com.android.providers' 这种虚拟标识，就视为有效物理路径
+                    const isVirtual = path.includes('content://') || path.includes('com.android.providers');
+                    
+                    if (!isVirtual) {
                         store.add(path);
                         renderVideo(path);
-                        permanentCount++;
+                        addedCount++;
                     } else {
-                        // 如果是 content:// 开头的路径
-                        temporaryCount++;
+                        showWarning = true;
                     }
                 }
             }
 
-            if (temporaryCount > 0 && permanentCount === 0) {
-                alert("⚠ 选择无效：你刚才从【最近】或【缓存】中选择了视频，这些路径在重启 App 后会失效。\n\n请点击左上角菜单，进入【内部存储】文件夹（如 Movies 或 DCIM）重新选择。");
+            if (showWarning && addedCount === 0) {
+                alert("⚠ 依然检测到虚拟路径！\n\n请务必点击左上角【三横线】菜单，找到【手机型号名称】并点击进入，然后再选择具体的文件夹（如 Movies）。");
             }
 
-            if (permanentCount > 0) {
+            if (addedCount > 0) {
                 addBtn.classList.add('hidden');
                 if (emptyState) emptyState.style.display = 'none';
             }
         }
     } catch (err) { 
-        alert("操作异常: " + (err.message || "请检查权限")); 
+        alert("操作异常: " + (err.message || "权限不足")); 
     }
 }
 
-// 5. 交互与播放逻辑
+// 5. 交互逻辑
 addBtn.onclick = (e) => { e.stopPropagation(); pickVideos(); };
 
 container.onclick = () => {
