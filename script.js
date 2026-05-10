@@ -1,9 +1,11 @@
-// 修改 pickVideos 函数，使其符合 Android 13+ 的路径逻辑
+// 替换 pickVideos 函数为更底层的 pickFiles 逻辑
 async function pickVideos() {
     try {
         const { FilePicker } = window.Capacitor.Plugins;
         
-        // 使用 pickFiles 获取更直接的物理路径
+        // 权限检查
+        if (FilePicker.requestPermissions) await FilePicker.requestPermissions();
+        
         const result = await FilePicker.pickFiles({
             types: ['video/*'],
             multiple: true,
@@ -15,7 +17,7 @@ async function pickVideos() {
             const store = tx.objectStore("paths");
 
             for (const file of result.files) {
-                // 确保只保存物理路径（/storage/emulated/0/...）
+                // file.path 才是真正的物理绝对路径，URI 会在重启后失效
                 if (file.path) {
                     store.add(file.path);
                     renderVideo(file.path);
@@ -24,7 +26,6 @@ async function pickVideos() {
             addBtn.classList.add('hidden');
         }
     } catch (err) {
-        console.error("选择失败:", err);
-        alert("请在设置中授予‘所有文件访问权限’以确保视频正常播放。");
+        alert("选择失败：请确保在系统设置中开启了‘所有文件访问权限’");
     }
 }
