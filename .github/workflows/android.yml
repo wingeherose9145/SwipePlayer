@@ -23,45 +23,60 @@ jobs:
 
       - name: Native Logic Injection
         run: |
-          # 1. 强制生成完美的 MainActivity.java (彻底解决 WebView 底层文件访问限制)
+          # 1. 注入强力权限检查逻辑的 MainActivity.java
           mkdir -p android/app/src/main/java/com/mytiktok/app/
           cat <<EOF > android/app/src/main/java/com/mytiktok/app/MainActivity.java
           package com.mytiktok.app;
           import android.os.Bundle;
           import android.webkit.WebSettings;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.os.Build;
+          import android.os.Environment;
+          import android.provider.Settings;
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-                  // 底层权限逻辑：强制开启本地文件访问
-                  try {
-                      WebSettings s = this.bridge.getWebView().getSettings();
-                      s.setAllowFileAccess(true);
-                      s.setAllowContentAccess(true);
-                      s.setAllowFileAccessFromFileURLs(true);
-                      s.setAllowUniversalAccessFromFileURLs(true);
-                  } catch (Exception e) {}
+                  
+                  // A. 开启 WebView 访问本地文件权限
+                  WebSettings s = this.bridge.getWebView().getSettings();
+                  s.setAllowFileAccess(true);
+                  s.setAllowContentAccess(true);
+                  s.setAllowFileAccessFromFileURLs(true);
+                  s.setAllowUniversalAccessFromFileURLs(true);
+
+                  // B. Android 11+ 自动检测并跳转权限申请页
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                      if (!Environment.isExternalStorageManager()) {
+                          try {
+                              Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                              i.setData(Uri.parse("package:" + getPackageName()));
+                              startActivity(i);
+                          } catch (Exception e) {
+                              Intent i = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                              startActivity(i);
+                          }
+                      }
+                  }
               }
           }
           EOF
 
-          # 2. 强制生成 AndroidManifest.xml
+          # 2. 注入完整权限声明的 AndroidManifest.xml
           cat <<EOF > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
               <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
-              
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
                   android:label="SwipePlayer"
                   android:requestLegacyExternalStorage="true"
-                  android:preserveLegacyExternalStorage="true"
                   android:usesCleartextTraffic="true">
                   <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode">
                       <intent-filter>
@@ -80,5 +95,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SwipePlayer-Final
+          name: SwipePlayer-Fix-v2
           path: android/app/build/outputs/apk/debug/app-debug.apk
