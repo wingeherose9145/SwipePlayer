@@ -23,7 +23,6 @@ jobs:
 
       - name: Native Logic Injection
         run: |
-          # 1. 注入强力权限检查逻辑的 MainActivity.java
           mkdir -p android/app/src/main/java/com/mytiktok/app/
           cat <<EOF > android/app/src/main/java/com/mytiktok/app/MainActivity.java
           package com.mytiktok.app;
@@ -41,21 +40,23 @@ jobs:
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
                   
+                  // 强制开启 WebView 跨域与本地文件访问，这是重启后读取路径的关键
                   WebSettings s = this.bridge.getWebView().getSettings();
                   s.setAllowFileAccess(true);
                   s.setAllowContentAccess(true);
                   s.setAllowFileAccessFromFileURLs(true);
                   s.setAllowUniversalAccessFromFileURLs(true);
+                  s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                       if (!Environment.isExternalStorageManager()) {
                           try {
-                              Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                              intent.setData(Uri.parse("package:" + getPackageName()));
-                              startActivity(intent);
+                              Intent i = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                              i.setData(Uri.parse("package:" + getPackageName()));
+                              startActivity(i);
                           } catch (Exception e) {
-                              Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                              startActivity(intent);
+                              Intent i = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                              startActivity(i);
                           }
                       }
                   }
